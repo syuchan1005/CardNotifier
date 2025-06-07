@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "card-notifier",
+  "compatibility_date": "2025-06-07",
+  "main": "./server.ts",
+  "assets": {
+    "directory": "./build/client/",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "card-notifier",
+      "database_id": "06ca4df6-e29c-4097-9d30-a0af51fa1882",
+      "migrations_dir": "./migrations"
+    }
+  ]
+}

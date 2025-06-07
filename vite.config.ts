@@ -4,6 +4,8 @@ import {
   cloudflareDevProxyVitePlugin,
 } from "@remix-run/dev";
 import tsconfigPaths from "vite-tsconfig-paths";
+import adapter from "@hono/vite-dev-server/cloudflare"
+import serverAdapter from "hono-remix-adapter/vite"
 import { getLoadContext } from "./load-context";
 
 declare module "@remix-run/cloudflare" {
@@ -27,6 +29,10 @@ export default defineConfig({
       },
     }),
     tsconfigPaths(),
+    serverAdapter({
+      adapter,
+      entry: "./server/index.ts"
+    }),
   ],
   ssr: {
     resolve: {
