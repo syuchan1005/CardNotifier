@@ -17,10 +17,12 @@
 		"local:migration": "wrangler d1 migrations apply card-notifier --local",
 		"remote:migration": "wrangler d1 migrations apply card-notifier --remote",
 		"local:seed": "wrangler d1 execute card-notifier --local --file=seed.sql",
-		"remote:seed": "wrangler d1 execute card-notifier --remote --file=seed.sql"
+		"remote:seed": "wrangler d1 execute card-notifier --remote --file=seed.sql",
+		"generate:pwa-assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg"
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.7.0",
+		"@remix-pwa/worker-runtime": "^2.1.4",
 		"@remix-run/cloudflare": "^2.16.6",
 		"@remix-run/react": "^2.16.6",
 		"@remix-run/server-runtime": "^2.16.6",
@@ -32,11 +34,13 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
+		"@remix-pwa/dev": "^3.1.0",
 		"@remix-run/dev": "^2.16.6",
 		"@types/react": "^18.2.20",
 		"@types/react-dom": "^18.2.7",
 		"@typescript-eslint/eslint-plugin": "^6.7.4",
 		"@typescript-eslint/parser": "^6.7.4",
+		"@vite-pwa/assets-generator": "^1.0.0",
 		"autoprefixer": "^10.4.19",
 		"drizzle-kit": "^0.31.1",
 		"eslint": "^8.38.0",

@@ -6,6 +6,7 @@ import {
 import tsconfigPaths from "vite-tsconfig-paths";
 import adapter from "@hono/vite-dev-server/cloudflare"
 import serverAdapter from "hono-remix-adapter/vite"
+import { remixPWA } from '@remix-pwa/dev';
 import { getLoadContext } from "./load-context";
 
 declare module "@remix-run/cloudflare" {
@@ -33,6 +34,7 @@ export default defineConfig({
       adapter,
       entry: "./server/index.ts"
     }),
+    remixPWA(),
   ],
   ssr: {
     resolve: {
