@@ -1,3 +1,6 @@
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 function _mergeNamespaces(n, m) {
   for (var i = 0; i < m.length; i++) {
     const e = m[i];
@@ -17,6 +20,120 @@ function _mergeNamespaces(n, m) {
   }
   return Object.freeze(Object.defineProperty(n, Symbol.toStringTag, { value: "Module" }));
 }
+function getAugmentedNamespace(n) {
+  if (n.__esModule) return n;
+  var f = n.default;
+  if (typeof f == "function") {
+    var a = function a2() {
+      if (this instanceof a2) {
+        return Reflect.construct(f, arguments, this.constructor);
+      }
+      return f.apply(this, arguments);
+    };
+    a.prototype = f.prototype;
+  } else a = {};
+  Object.defineProperty(a, "__esModule", { value: true });
+  Object.keys(n).forEach(function(k) {
+    var d = Object.getOwnPropertyDescriptor(n, k);
+    Object.defineProperty(a, k, d.get ? d : {
+      enumerable: true,
+      get: function() {
+        return n[k];
+      }
+    });
+  });
+  return a;
+}
+class PushManager {
+  constructor(options = {}) {
+    __publicField(this, "_handlePushEvent");
+    __publicField(this, "_handleNotificationClick");
+    __publicField(this, "_handleNotificationClose");
+    __publicField(this, "_handleNotificationError");
+    this._handlePushEvent = options.handlePushEvent || this.handlePushEvent;
+    this._handleNotificationClick = options.handleNotificationClick || this.handleNotificationClick;
+    this._handleNotificationClose = options.handleNotificationClose || this.handleNotificationClose;
+    this._handleNotificationError = options.handleNotificationError || this.handleNotificationError;
+    this.registerListeners();
+  }
+  registerListeners() {
+    self.addEventListener("push", this._handlePushEvent.bind(this));
+    self.addEventListener("notificationclick", this._handleNotificationClick.bind(this));
+    self.addEventListener("notificationclose", this._handleNotificationClose.bind(this));
+    self.addEventListener("notificationerror", this._handleNotificationError.bind(this));
+  }
+  async isClientFocused() {
+    const clientList = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true
+    });
+    return clientList.some((client) => client.focused);
+  }
+  async postMessageToClient(message, all = true) {
+    const clientList = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true
+    });
+    if (all) {
+      clientList.forEach((client) => client.postMessage(message));
+    } else {
+      if (clientList.length > 0) {
+        const client = clientList[0];
+        client.postMessage(message);
+      }
+    }
+  }
+  handlePushEvent(event) {
+    const func = async () => {
+      let data2;
+      if (!event.data)
+        return self.registration.showNotification("No data");
+      try {
+        data2 = event.data.json();
+      } catch (e) {
+        data2 = event.data.text();
+      }
+      if (typeof data2 === "string") {
+        return self.registration.showNotification(data2);
+      }
+      const { title, ...rest } = data2;
+      return self.registration.showNotification(title, {
+        ...rest
+      });
+    };
+    event.waitUntil(func());
+  }
+  handleNotificationClick(event) {
+    event.notification.close();
+    const func = async () => {
+      const clientList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true
+      });
+      if (clientList.length > 0) {
+        const client = clientList[0];
+        client.focus();
+      } else {
+        self.clients.openWindow("/");
+      }
+    };
+    event.waitUntil(func());
+  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
+  handleNotificationClose(_event) {
+  }
+  handleNotificationError(event) {
+    console.error("Notification error:", event);
+  }
+}
+new PushManager({
+  handlePushEvent: (event) => {
+    var _a;
+    console.log("Push event received:", event);
+    const notification = (_a = event.data) == null ? void 0 : _a.json();
+    event.waitUntil(self.registration.showNotification(notification.title, notification.options));
+  }
+});
 self.addEventListener("install", (event) => {
   console.log("Service worker installed");
   event.waitUntil(self.skipWaiting());
@@ -4255,30 +4372,6 @@ const router$2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProp
   resolveTo,
   stripBasename
 }, Symbol.toStringTag, { value: "Module" }));
-function getAugmentedNamespace(n) {
-  if (n.__esModule) return n;
-  var f = n.default;
-  if (typeof f == "function") {
-    var a = function a2() {
-      if (this instanceof a2) {
-        return Reflect.construct(f, arguments, this.constructor);
-      }
-      return f.apply(this, arguments);
-    };
-    a.prototype = f.prototype;
-  } else a = {};
-  Object.defineProperty(a, "__esModule", { value: true });
-  Object.keys(n).forEach(function(k) {
-    var d = Object.getOwnPropertyDescriptor(n, k);
-    Object.defineProperty(a, k, d.get ? d : {
-      enumerable: true,
-      get: function() {
-        return n[k];
-      }
-    });
-  });
-  return a;
-}
 var mode$2 = {};
 /**
  * @remix-run/server-runtime v2.16.8

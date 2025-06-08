@@ -2,6 +2,8 @@ import type { MetaFunction } from "@remix-run/cloudflare";
 import { hc } from "hono/client";
 import { useEffect, useState } from "react";
 import type { AppType } from "server/index";
+import { useHono } from "~/fetcher";
+import { NotificationButton } from "~/NotificationButton";
 
 export const meta: MetaFunction = () => {
   return [
@@ -11,14 +13,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Index() {
-  const [data, setData] = useState();
-  useEffect(() => {
-    (async () => {
-      const client = hc<AppType>('/');
-      const res = await client.health.$get().then((r) => r.json());
-      setData(res);
-    })();
-  }, []);
+  const { data } = useHono('/health', (c) => c.health.$get());
   return (
     <div className="flex h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-16">
@@ -27,6 +22,7 @@ export default function Index() {
             Welcome to <span className="sr-only">Remix</span>
             {JSON.stringify(data)}
           </h1>
+          <NotificationButton />
           <div className="h-[144px] w-[434px]">
             <img
               src="/logo-light.png"
