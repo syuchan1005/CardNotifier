@@ -22,6 +22,7 @@
 		"generate:pwa-assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg"
 	},
 	"dependencies": {
+		"@block65/webcrypto-web-push": "^1.0.2",
 		"@hono/zod-validator": "^0.7.0",
 		"@remix-pwa/push": "^2.10.3",
 		"@remix-pwa/worker-runtime": "^2.1.4",
@@ -34,7 +35,8 @@
 		"isbot": "^4.1.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"swr": "^2.3.3"
+		"swr": "^2.3.3",
+		"zod": "^3.25.56"
 	},
 	"devDependencies": {
 		"@remix-pwa/dev": "^3.1.0",

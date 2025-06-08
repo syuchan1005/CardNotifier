@@ -6,7 +6,7 @@ export function NotificationButton() {
         '/notification',
         (c) => c.api.notification.$get(),
     );
-    const { trigger, isMutating } = useHonoMutation(
+    const { trigger: postPushSubscription, isMutating: isPosting } = useHonoMutation(
         '/notification$post',
         async (c, { arg }: { arg: PushSubscription }) => {
             const json = arg.toJSON();
@@ -26,16 +26,31 @@ export function NotificationButton() {
         },
     );
 
-    const { subscribeToPush, unsubscribeFromPush, isSubscribed } = usePush();
+    const { trigger: deletePushSubscription, isMutating: isDeleting } = useHonoMutation(
+        '/notification$delete',
+        async (c, { arg: endpoint }: { arg: string }) => {
+            if (!endpoint) {
+                throw new Error('PushSubscription is invalid');
+            }
+            return c.api.notification.$delete({ json: { endpoint } });
+        },
+    );
+
+    const { subscribeToPush, unsubscribeFromPush, isSubscribed, pushSubscription } = usePush();
 
     return (
         <button
-            disabled={isLoading || error || isMutating}
+            disabled={isLoading || error || isPosting || isDeleting}
             onClick={() => {
                 if (isSubscribed) {
-                    unsubscribeFromPush();
+                    if (pushSubscription) {
+                        deletePushSubscription(pushSubscription.endpoint)
+                            .then(() => {
+                                unsubscribeFromPush();
+                            });
+                    }
                 } else if (data) {
-                    subscribeToPush(data.publicKey, trigger);
+                    subscribeToPush(data.publicKey, postPushSubscription);
                 }
             }}
         >

@@ -27,3 +27,12 @@ export const emailsTable = sqliteTable("emails", {
     bodyHtml: text().notNull(),
     rawText: text().notNull(),
 });
+
+export const pushSubscriptionsTable = sqliteTable("push_subscriptions", {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: integer().notNull(),
+    endpoint: text().notNull(),
+    key_p256dh: text().notNull(),
+    key_auth: text().notNull(),
+    expirationTime: integer().notNull().default(0),
+});
