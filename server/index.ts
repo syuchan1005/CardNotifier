@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const apiRoute = new Hono<{ Bindings: Env }>()
+const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
     .get("/health", async (c) => {
         const db = drizzle(c.env.DB);
         const result = await db.select().from(usersTable).all();
@@ -62,9 +62,9 @@ const apiRoute = new Hono<{ Bindings: Env }>()
         });
 
 const app = new Hono()
+    .route("/", apiRoute)
     // Workaround for Chrome DevTools
-    .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404))
-    .route("/api", apiRoute);
+    .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404));
 
 export default app;
 export type AppType = typeof app;

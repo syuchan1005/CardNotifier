@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "card-notifier",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "compatibility_date": "2025-06-07",
   "main": "./worker.ts",
   "assets": {
@@ -8,10 +11,6 @@
   },
   "observability": {
     "enabled": true,
-  },
-  "vars": {
-    "WEB_PUSH_PUBLIC_KEY": "",
-    "WEB_PUSH_PRIVATE_KEY": "",
   },
   "d1_databases": [
     {
