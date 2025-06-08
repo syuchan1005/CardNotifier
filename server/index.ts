@@ -66,5 +66,19 @@ const app = new Hono()
     // Workaround for Chrome DevTools
     .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404));
 
-export default app;
+export default {
+    ...app,
+    async email(message, env, ctx) {
+        const rawText = await new Response(message.raw).text();
+        const entity = {
+            from: message.from,
+            to: message.to,
+            date: new Date(message.headers.get('date')).getTime(),
+            subject: message.headers.get('subject'),
+            bodyText: rawText.substring(rawText.indexOf('\n\n') + 2),
+            rawText: rawText,
+        };
+        console.log("Received email:", entity);
+    },
+} as ExportedHandler<Env>;
 export type AppType = typeof app;

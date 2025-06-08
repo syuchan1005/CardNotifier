@@ -19,5 +19,8 @@
       "database_id": "06ca4df6-e29c-4097-9d30-a0af51fa1882",
       "migrations_dir": "./migrations"
     }
+  ],
+  "send_email": [
+    { "name": "EMAIL" }
   ]
 }
