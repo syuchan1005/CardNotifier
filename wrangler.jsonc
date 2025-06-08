@@ -16,11 +16,8 @@
     {
       "binding": "DB",
       "database_name": "card-notifier",
-      "database_id": "06ca4df6-e29c-4097-9d30-a0af51fa1882",
+      "database_id": "cd9f6333-3d48-413b-abf3-4615aac3027d",
       "migrations_dir": "./migrations"
     }
-  ],
-  "send_email": [
-    { "name": "EMAIL" }
   ]
 }

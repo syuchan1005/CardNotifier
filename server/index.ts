@@ -6,9 +6,10 @@ import {
     PushSubscription,
     sendNotifications,
 } from '@remix-pwa/push';
-import { usersTable } from "./db/schema";
+import { emailsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod';
+import PostalMime from 'postal-mime';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -70,15 +71,20 @@ export default {
     ...app,
     async email(message, env, ctx) {
         const rawText = await new Response(message.raw).text();
+        const parsedMessage = await PostalMime.parse(rawText);
         const entity = {
-            from: message.from,
-            to: message.to,
-            date: new Date(message.headers.get('date')).getTime(),
-            subject: message.headers.get('subject'),
-            bodyText: rawText.substring(rawText.indexOf('\n\n') + 2),
+            userId: 1,
+            from: parsedMessage.from.address || '',
+            to: parsedMessage.to?.map((to) => to.address).filter((to) => !!to).join(', ') || '',
+            date: parsedMessage.date ? new Date(parsedMessage.date).getTime() : Date.now(),
+            subject: parsedMessage.subject || '',
+            bodyText: parsedMessage.text || '',
+            bodyHtml: parsedMessage.html || '',
             rawText: rawText,
         };
-        console.log("Received email:", entity);
+        const db = drizzle(env.DB);
+        await db.insert(emailsTable).values(entity).run();
+        console.log('Email saved:', entity);
     },
 } as ExportedHandler<Env>;
 export type AppType = typeof app;

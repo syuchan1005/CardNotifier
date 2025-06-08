@@ -5,8 +5,29 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1749298745740,
-      "tag": "0000_complex_triathlon",
+      "when": 1749364974050,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1749365368770,
+      "tag": "0001_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1749365425097,
+      "tag": "0002_add-userid",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1749366430676,
+      "tag": "0003_brief_randall_flagg",
       "breakpoints": true
     }
   ]
