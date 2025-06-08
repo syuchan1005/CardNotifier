@@ -13,7 +13,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Index() {
-  const { data } = useHono('/health', (c) => c.health.$get());
+  const { data } = useHono('/health', (c) => c.api.health.$get());
   return (
     <div className="flex h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-16">

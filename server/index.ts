@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const app = new Hono<{ Bindings: Env }>()
+const apiRoute = new Hono<{ Bindings: Env }>()
     .get("/health", async (c) => {
         const db = drizzle(c.env.DB);
         const result = await db.select().from(usersTable).all();
@@ -60,6 +60,11 @@ const app = new Hono<{ Bindings: Env }>()
 
             return c.json({ status: 'OK' });
         });
+
+const app = new Hono()
+    // Workaround for Chrome DevTools
+    .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404))
+    .route("/api", apiRoute);
 
 export default app;
 export type AppType = typeof app;

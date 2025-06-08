@@ -4,7 +4,7 @@ import { useHono, useHonoMutation } from './fetcher';
 export function NotificationButton() {
     const { data, error, isLoading } = useHono(
         '/notification',
-        (c) => c.notification.$get(),
+        (c) => c.api.notification.$get(),
     );
     const { trigger, isMutating } = useHonoMutation(
         '/notification$post',
@@ -13,7 +13,7 @@ export function NotificationButton() {
             if (!json.endpoint || !json.keys || !json.keys.p256dh || !json.keys.auth) {
                 throw new Error('PushSubscription is invalid');
             }
-            return c.notification.$post({
+            return c.api.notification.$post({
                 json: {
                     endpoint: json.endpoint,
                     expirationTime: json.expirationTime,
