@@ -7,7 +7,7 @@ import {
 } from '@remix-pwa/push';
 import { emailsTable, pushSubscriptionsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
-import { z } from 'zod';
+import { success, z } from 'zod/v4';
 import PostalMime from 'postal-mime';
 import { sendNotification } from "./push";
 
@@ -81,6 +81,20 @@ const app = new Hono()
     // Workaround for Chrome DevTools
     .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404));
 
+const transactionSchema = z.union([
+    z.object({
+        success: z.literal(true),
+        amount: z.number(),
+        amount_currency: z.string(),
+        card_name: z.string(),
+        purchased_at: z.string().meta({ format: 'date-time' }),
+        dest: z.string().meta({ description: 'Merchant name' }),
+    }),
+    z.object({
+        success: z.literal(false),
+    }),
+]);
+
 export default {
     ...app,
     async email(message, env) {
@@ -98,14 +112,29 @@ export default {
         };
         const db = drizzle(env.DB);
         await db.insert(emailsTable).values(entity).run();
-        console.log('Email saved:', entity);
+
+        const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+            prompt: `Parse below email. Set minus amount for refund.\n\n${JSON.stringify({ subject: entity.subject, body: parsedMessage.text || parsedMessage.html })}`,
+            response_format: {
+                type: 'json_schema',
+                json_schema: z.toJSONSchema(transactionSchema),
+            },
+            stream: false,
+        }) as Exclude<AiTextGenerationOutput, ReadableStream>;
+        const response = transactionSchema.safeParse(answer.response);
+        if (!response.success || !response.data.success || response.data.amount === 0) {
+            // not a transaction or amount is zero
+            return;
+        }
+        const transaction = response.data;
+        console.log('Parsed transaction:', transaction);
 
         const subscriptions = await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.userId, entity.userId));
         if (subscriptions.length > 0) {
             const notification: NotificationObject = {
-                title: 'New Email Received',
+                title: 'New Transaction Received',
                 options: {
-                    body: `From: ${entity.from}\nSubject: ${entity.subject}`,
+                    body: `${transaction.card_name}/${transaction.dest}\n${transaction.amount} ${transaction.amount_currency}`,
                 },
             };
             console.log('Sending notification: ', notification);
