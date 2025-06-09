@@ -11,8 +11,6 @@ import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
 import { sendNotification } from "./push";
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 const pushSubscriptionSchema = z.object({
     endpoint: z.string().url(),
     keys: z.object({
@@ -84,6 +82,7 @@ const app = new Hono()
 const transactionSchema = z.union([
     z.object({
         success: z.literal(true),
+        isRefund: z.boolean(),
         amount: z.number(),
         amount_currency: z.string(),
         card_name: z.string(),
@@ -114,7 +113,7 @@ export default {
         await db.insert(emailsTable).values(entity).run();
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-            prompt: `Parse below email. Set minus amount for refund.\n\n${JSON.stringify({ subject: entity.subject, body: parsedMessage.text || parsedMessage.html })}`,
+            prompt: JSON.stringify({ subject: entity.subject, body: parsedMessage.text || parsedMessage.html }),
             response_format: {
                 type: 'json_schema',
                 json_schema: z.toJSONSchema(transactionSchema),
@@ -122,25 +121,18 @@ export default {
             stream: false,
         }) as Exclude<AiTextGenerationOutput, ReadableStream>;
         const response = transactionSchema.safeParse(answer.response);
-        let notification: NotificationObject;
         if (!response.success || !response.data.success || response.data.amount === 0) {
             // not a transaction or amount is zero
-            notification = {
-                title: 'New Email Received',
-                options: {
-                    body: `parse: ${response.success}, dataSuccess: ${response.data?.success}, amount: ${response.data?.amount}\nFrom: ${entity.from}\nTo: ${entity.to}\nSubject: ${entity.subject}`,
-                },
-            };
-        } else {
-            const transaction = response.data;
-            console.log('Parsed transaction:', transaction);
-            notification = {
-                title: 'New Transaction Received',
-                options: {
-                    body: `${transaction.card_name}/${transaction.dest}\n${transaction.amount} ${transaction.amount_currency}`,
-                },
-            };
+            return;
         }
+        const transaction = response.data;
+        console.log('Parsed transaction:', transaction);
+        const notification: NotificationObject = {
+            title: 'New Transaction Received',
+            options: {
+                body: `${transaction.card_name}/${transaction.dest}\n${transaction.amount * (transaction.isRefund ? -1 : 1)} ${transaction.amount_currency}`,
+            },
+        };
 
         const subscriptions = await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.userId, entity.userId));
         if (subscriptions.length > 0) {

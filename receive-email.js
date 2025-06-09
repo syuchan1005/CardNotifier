@@ -11,7 +11,7 @@ From: "John" <sender@example.com>
 Reply-To: sender@example.com
 To: recipient@example.com
 Subject: Testing Email Workers Local Dev
-Content-Type: text/html; charset="windows-1252"
+Content-Type: text/html; charset="utf-8"
 X-Mailer: Curl
 Date: Tue, 27 Aug 2024 08:49:44 -0700
 Message-ID: <6114391943504294873000@ZSH-GHOSTTY>
