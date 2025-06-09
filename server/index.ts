@@ -7,7 +7,7 @@ import {
 } from '@remix-pwa/push';
 import { emailsTable, pushSubscriptionsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
-import { success, z } from 'zod/v4';
+import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
 import { sendNotification } from "./push";
 
@@ -122,21 +122,28 @@ export default {
             stream: false,
         }) as Exclude<AiTextGenerationOutput, ReadableStream>;
         const response = transactionSchema.safeParse(answer.response);
+        let notification: NotificationObject;
         if (!response.success || !response.data.success || response.data.amount === 0) {
             // not a transaction or amount is zero
-            return;
-        }
-        const transaction = response.data;
-        console.log('Parsed transaction:', transaction);
-
-        const subscriptions = await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.userId, entity.userId));
-        if (subscriptions.length > 0) {
-            const notification: NotificationObject = {
+            notification = {
+                title: 'New Email Received',
+                options: {
+                    body: `parse: ${response.success}, dataSuccess: ${response.data?.success}, amount: ${response.data?.amount}\nFrom: ${entity.from}\nTo: ${entity.to}\nSubject: ${entity.subject}`,
+                },
+            };
+        } else {
+            const transaction = response.data;
+            console.log('Parsed transaction:', transaction);
+            notification = {
                 title: 'New Transaction Received',
                 options: {
                     body: `${transaction.card_name}/${transaction.dest}\n${transaction.amount} ${transaction.amount_currency}`,
                 },
             };
+        }
+
+        const subscriptions = await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.userId, entity.userId));
+        if (subscriptions.length > 0) {
             console.log('Sending notification: ', notification);
             await sendNotification(env, {
                 subscriptions: subscriptions.map(sub => ({

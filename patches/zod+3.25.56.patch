@@ -1,0 +1,40 @@
+diff --git a/node_modules/zod/dist/cjs/v4/core/util.js b/node_modules/zod/dist/cjs/v4/core/util.js
+index 671c257..a46fb29 100644
+--- a/node_modules/zod/dist/cjs/v4/core/util.js
++++ b/node_modules/zod/dist/cjs/v4/core/util.js
+@@ -158,14 +158,7 @@ function isObject(data) {
+     return typeof data === "object" && data !== null && !Array.isArray(data);
+ }
+ exports.allowsEval = cached(() => {
+-    try {
+-        const F = Function;
+-        new F("");
+-        return true;
+-    }
+-    catch (_) {
+-        return false;
+-    }
++    return false;
+ });
+ function _isObject(o) {
+     return Object.prototype.toString.call(o) === "[object Object]";
+diff --git a/node_modules/zod/dist/esm/v4/core/util.js b/node_modules/zod/dist/esm/v4/core/util.js
+index de1bb9c..74ffa14 100644
+--- a/node_modules/zod/dist/esm/v4/core/util.js
++++ b/node_modules/zod/dist/esm/v4/core/util.js
+@@ -114,14 +114,7 @@ export function isObject(data) {
+     return typeof data === "object" && data !== null && !Array.isArray(data);
+ }
+ export const allowsEval = cached(() => {
+-    try {
+-        const F = Function;
+-        new F("");
+-        return true;
+-    }
+-    catch (_) {
+-        return false;
+-    }
++    return false;
+ });
+ function _isObject(o) {
+     return Object.prototype.toString.call(o) === "[object Object]";

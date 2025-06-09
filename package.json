@@ -19,7 +19,8 @@
 		"local:seed": "wrangler d1 execute card-notifier --local --file=seed.sql",
 		"remote:seed": "wrangler d1 execute card-notifier --remote --file=seed.sql",
 		"local:email": "node ./receive-email.js",
-		"generate:pwa-assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg"
+		"generate:pwa-assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg",
+		"postinstall": "patch-package"
 	},
 	"dependencies": {
 		"@block65/webcrypto-web-push": "^1.0.2",
@@ -33,6 +34,7 @@
 		"hono": "^4.7.11",
 		"hono-remix-adapter": "^0.5.4",
 		"isbot": "^4.1.0",
+		"patch-package": "^8.0.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"swr": "^2.3.3",
