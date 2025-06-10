@@ -1,1 +1,0 @@
-ALTER TABLE `emails` ADD `bodyHtml` text NOT NULL;

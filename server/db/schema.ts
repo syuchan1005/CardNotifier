@@ -1,20 +1,38 @@
+import { InferSelectModel } from "drizzle-orm";
 import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
+
+type Merge<T> = { [K in keyof T]: T[K] };
+type WithOptional<T, K extends keyof T> = Merge<Omit<T, K> & Partial<Pick<T, K>>>;
 
 export const usersTable = sqliteTable("users", {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
 });
 
+export const pushSubscriptionsTable = sqliteTable("push_subscriptions", {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: integer().notNull(),
+    endpoint: text().notNull(),
+    keyP256dh: text().notNull(),
+    keyAuth: text().notNull(),
+    expirationTime: integer().notNull().default(0),
+});
+
+export type PushSubscriptionEntity = WithOptional<InferSelectModel<typeof pushSubscriptionsTable>, 'id'>;
+
 export const transactionsTable = sqliteTable("transactions", {
     id: integer().primaryKey({ autoIncrement: true }),
     userId: integer().notNull(),
+    isRefund: integer({ mode: 'boolean' }).notNull(),
     amount: integer().notNull(),
-    amount_currency: text().notNull(),
-    card_name: text().notNull(),
-    created_at: integer().notNull(),
-    purchased_at: integer().notNull(),
-    dest: text().notNull()
+    amountCurrency: text().notNull(),
+    cardName: text().notNull(),
+    purchasedAt: integer().notNull(),
+    destination: text().notNull(),
+    createdAt: integer().notNull(),
 });
+
+export type TransactionEntity = WithOptional<InferSelectModel<typeof transactionsTable>, 'id'>;
 
 export const emailsTable = sqliteTable("emails", {
     id: integer().primaryKey({ autoIncrement: true }),
@@ -24,15 +42,6 @@ export const emailsTable = sqliteTable("emails", {
     date: integer().notNull(),
     subject: text().notNull(),
     bodyText: text().notNull(),
-    bodyHtml: text().notNull(),
-    rawText: text().notNull(),
 });
 
-export const pushSubscriptionsTable = sqliteTable("push_subscriptions", {
-    id: integer().primaryKey({ autoIncrement: true }),
-    userId: integer().notNull(),
-    endpoint: text().notNull(),
-    key_p256dh: text().notNull(),
-    key_auth: text().notNull(),
-    expirationTime: integer().notNull().default(0),
-});
+export type EmailEntity = WithOptional<InferSelectModel<typeof emailsTable>, 'id'>;

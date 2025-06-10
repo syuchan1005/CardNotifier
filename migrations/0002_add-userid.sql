@@ -1,1 +1,0 @@
-ALTER TABLE `emails` ADD `userId` integer NOT NULL;

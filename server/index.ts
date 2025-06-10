@@ -5,7 +5,7 @@ import {
     NotificationObject,
     PushSubscription,
 } from '@remix-pwa/push';
-import { emailsTable, pushSubscriptionsTable, usersTable } from "./db/schema";
+import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
@@ -21,11 +21,7 @@ const pushSubscriptionSchema = z.object({
 });
 
 const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
-    .get("/health", async (c) => {
-        const db = drizzle(c.env.DB);
-        const result = await db.select().from(usersTable).all();
-        return c.json({ status: JSON.stringify(result) });
-    })
+    .get("/health", (c) => c.json({ status: "OK" }))
     .get("/notification", (c) => c.json({ publicKey: c.env.WEB_PUSH_PUBLIC_KEY }))
     .post(
         "/notification",
@@ -37,8 +33,8 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
             await db.insert(pushSubscriptionsTable).values({
                 userId: 1,
                 endpoint: body.endpoint,
-                key_p256dh: body.keys.p256dh,
-                key_auth: body.keys.auth,
+                keyP256dh: body.keys.p256dh,
+                keyAuth: body.keys.auth,
                 expirationTime: body.expirationTime ?? 0,
             }).run();
 
@@ -50,10 +46,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 },
             };
 
-            await sendNotification(c.env, {
-                subscriptions,
-                notification,
-            });
+            await sendNotification(c.env, { subscriptions, notification });
             return c.json({ status: 'OK' });
         },
     )
@@ -84,10 +77,10 @@ const transactionSchema = z.union([
         success: z.literal(true),
         isRefund: z.boolean(),
         amount: z.number(),
-        amount_currency: z.string(),
-        card_name: z.string(),
-        purchased_at: z.string().meta({ format: 'date-time' }),
-        dest: z.string().meta({ description: 'Merchant name' }),
+        amountCurrency: z.string(),
+        cardName: z.string(),
+        purchasedAt: z.string().meta({ format: 'date-time' }),
+        destination: z.string().meta({ description: 'Merchant name' }),
     }),
     z.object({
         success: z.literal(false),
@@ -99,21 +92,19 @@ export default {
     async email(message, env) {
         const rawText = await new Response(message.raw).text();
         const parsedMessage = await PostalMime.parse(rawText);
-        const entity = {
+        const entity: EmailEntity = {
             userId: 1,
             from: parsedMessage.from.address || '',
             to: parsedMessage.to?.map((to) => to.address).filter((to) => !!to).join(', ') || '',
             date: parsedMessage.date ? new Date(parsedMessage.date).getTime() : Date.now(),
             subject: parsedMessage.subject || '',
-            bodyText: parsedMessage.text || '',
-            bodyHtml: parsedMessage.html || '',
-            rawText: rawText,
+            bodyText: parsedMessage.text || parsedMessage.html || '',
         };
         const db = drizzle(env.DB);
         await db.insert(emailsTable).values(entity).run();
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-            prompt: JSON.stringify({ subject: entity.subject, body: parsedMessage.text || parsedMessage.html }),
+            prompt: JSON.stringify(entity),
             response_format: {
                 type: 'json_schema',
                 json_schema: z.toJSONSchema(transactionSchema),
@@ -125,15 +116,25 @@ export default {
             // not a transaction or amount is zero
             return;
         }
-        const transaction = response.data;
-        console.log('Parsed transaction:', transaction);
+
+        const transaction: TransactionEntity = {
+            userId: entity.userId,
+            isRefund: response.data.isRefund,
+            amount: response.data.amount,
+            amountCurrency: response.data.amountCurrency,
+            cardName: response.data.cardName,
+            purchasedAt: new Date(response.data.purchasedAt).getTime(),
+            destination: response.data.destination,
+            createdAt: Date.now(),
+        };
+        await db.insert(transactionsTable).values(transaction).run();
+
         const notification: NotificationObject = {
             title: 'New Transaction Received',
             options: {
-                body: `${transaction.card_name}/${transaction.dest}\n${transaction.amount * (transaction.isRefund ? -1 : 1)} ${transaction.amount_currency}`,
+                body: `${transaction.cardName}/${transaction.destination}\n${transaction.amount * (transaction.isRefund ? -1 : 1)} ${transaction.amountCurrency}`,
             },
         };
-
         const subscriptions = await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.userId, entity.userId));
         if (subscriptions.length > 0) {
             console.log('Sending notification: ', notification);
@@ -141,8 +142,8 @@ export default {
                 subscriptions: subscriptions.map(sub => ({
                     endpoint: sub.endpoint,
                     keys: {
-                        p256dh: sub.key_p256dh,
-                        auth: sub.key_auth,
+                        p256dh: sub.keyP256dh,
+                        auth: sub.keyAuth,
                     },
                 })),
                 notification,
