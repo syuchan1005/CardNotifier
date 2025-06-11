@@ -24,7 +24,11 @@
 	},
 	"dependencies": {
 		"@block65/webcrypto-web-push": "^1.0.2",
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.0",
 		"@hono/zod-validator": "^0.7.0",
+		"@mui/icons-material": "^7.1.1",
+		"@mui/material": "^7.1.1",
 		"@remix-pwa/push": "^2.10.3",
 		"@remix-pwa/worker-runtime": "^2.1.4",
 		"@remix-run/cloudflare": "^2.16.6",
@@ -35,8 +39,8 @@
 		"hono-remix-adapter": "^0.5.4",
 		"isbot": "^4.1.0",
 		"patch-package": "^8.0.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
 		"swr": "^2.3.3",
 		"zod": "^3.25.56"
 	},
