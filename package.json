@@ -38,6 +38,7 @@
 		"drizzle-orm": "^0.44.2",
 		"hono": "^4.7.11",
 		"hono-remix-adapter": "^0.5.4",
+		"html-to-text": "^9.0.5",
 		"isbot": "^4.1.0",
 		"patch-package": "^8.0.0",
 		"react": "^19.1.0",
@@ -48,6 +49,7 @@
 	"devDependencies": {
 		"@remix-pwa/dev": "^3.1.0",
 		"@remix-run/dev": "^2.16.6",
+		"@types/html-to-text": "^9.0.4",
 		"@types/react": "^18.2.20",
 		"@types/react-dom": "^18.2.7",
 		"@typescript-eslint/eslint-plugin": "^6.7.4",

@@ -10,6 +10,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
 import { getAuth, oidcAuthMiddleware } from "@hono/oidc-auth";
+import { convert as convertHtmlToText } from "html-to-text";
 import { sendNotification } from "./push";
 
 const pushSubscriptionSchema = z.object({
@@ -123,13 +124,21 @@ export default {
     async email(message, env) {
         const rawText = await new Response(message.raw).text();
         const parsedMessage = await PostalMime.parse(rawText);
+        let bodyText = "";
+        if (parsedMessage.text) {
+            bodyText = parsedMessage.text;
+        } else if (parsedMessage.html) {
+            bodyText = convertHtmlToText(parsedMessage.html, { wordwrap: null })
+                .replace(/\[?http.+/g, "").replace(/^\s*\n/gm, ""); // Remove link and empty lines
+        }
+
         const entity: EmailEntity = {
             userId: 1,
             from: parsedMessage.from.address || '',
             to: parsedMessage.to?.map((to) => to.address).filter((to) => !!to).join(', ') || '',
             date: parsedMessage.date ? new Date(parsedMessage.date).getTime() : Date.now(),
             subject: parsedMessage.subject || '',
-            bodyText: parsedMessage.text || parsedMessage.html || '',
+            bodyText,
         };
         const db = drizzle(env.DB);
         await db.insert(emailsTable).values(entity);
