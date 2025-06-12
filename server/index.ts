@@ -1,11 +1,11 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte, between, desc, SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import {
     NotificationObject,
     PushSubscription,
 } from '@remix-pwa/push';
-import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable, usersTable } from "./db/schema";
+import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
@@ -36,7 +36,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 keyP256dh: body.keys.p256dh,
                 keyAuth: body.keys.auth,
                 expirationTime: body.expirationTime ?? 0,
-            }).run();
+            });
 
             const subscriptions: PushSubscription[] = [body];
             const notification: NotificationObject = {
@@ -60,10 +60,36 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 .where(and(
                     eq(pushSubscriptionsTable.userId, 1),
                     eq(pushSubscriptionsTable.endpoint, body.endpoint),
-                ))
-                .run();
+                ));
 
             return c.json({ status: 'OK' });
+        },
+    )
+    .get(
+        "/transactions",
+        zValidator(
+            'query',
+            z.object({
+                since: z.iso.datetime({ offset: true }).optional(),
+                until: z.iso.datetime({ offset: true }).optional(),
+            }).optional(),
+        ),
+        async (c) => {
+            const { since, until } = (c.req.valid('query') || {});
+            const db = drizzle(c.env.DB);
+            let purchasedAtFilter: SQL | undefined = undefined;
+            if (since && until) {
+                purchasedAtFilter = between(transactionsTable.purchasedAt, new Date(since).getTime(), new Date(until).getTime());
+            } else if (since) {
+                purchasedAtFilter = gte(transactionsTable.purchasedAt, new Date(since).getTime());
+            } else if (until) {
+                purchasedAtFilter = lte(transactionsTable.purchasedAt, new Date(until).getTime());
+            }
+            const response = await db.select().from(transactionsTable)
+                .where(and(eq(transactionsTable.userId, 1), purchasedAtFilter))
+                .limit(100)
+                .orderBy(desc(transactionsTable.purchasedAt));
+            return c.json(response);
         },
     );
 
@@ -101,7 +127,7 @@ export default {
             bodyText: parsedMessage.text || parsedMessage.html || '',
         };
         const db = drizzle(env.DB);
-        await db.insert(emailsTable).values(entity).run();
+        await db.insert(emailsTable).values(entity);
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
             prompt: JSON.stringify(entity),
@@ -127,7 +153,7 @@ export default {
             destination: response.data.destination,
             createdAt: Date.now(),
         };
-        await db.insert(transactionsTable).values(transaction).run();
+        await db.insert(transactionsTable).values(transaction);
 
         const notification: NotificationObject = {
             title: 'New Transaction Received',

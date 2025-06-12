@@ -16,6 +16,7 @@ import {
   InitColorSchemeScript,
 } from '@mui/material';
 import {grey, blueGrey } from '@mui/material/colors';
+import { NotificationButton } from "./NotificationButton";
 
 import "./tailwind.css";
 
@@ -99,9 +100,10 @@ export default function App() {
       <CssBaseline />
       <AppBar position="static" color="primary" enableColorOnDark>
         <Toolbar>
-          <Typography variant="h6">
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Card Notifier
           </Typography>
+          <NotificationButton />
         </Toolbar>
       </AppBar>
       <Container component="main">

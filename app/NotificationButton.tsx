@@ -1,12 +1,16 @@
 import { usePush } from '@remix-pwa/push/client';
 import { useHono, useHonoMutation } from './fetcher';
+import { Button } from '@mui/material';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
+import { useCallback, useState } from 'react';
 
 export function NotificationButton() {
-    const { data, error, isLoading } = useHono(
+    const { data, isLoading } = useHono(
         '/notification',
         (c) => c.api.notification.$get(),
     );
-    const { trigger: postPushSubscription, isMutating: isPosting } = useHonoMutation(
+    const { trigger: postPushSubscription } = useHonoMutation(
         '/notification$post',
         async (c, { arg }: { arg: PushSubscription }) => {
             const json = arg.toJSON();
@@ -26,7 +30,7 @@ export function NotificationButton() {
         },
     );
 
-    const { trigger: deletePushSubscription, isMutating: isDeleting } = useHonoMutation(
+    const { trigger: deletePushSubscription } = useHonoMutation(
         '/notification$delete',
         async (c, { arg: endpoint }: { arg: string }) => {
             if (!endpoint) {
@@ -36,26 +40,36 @@ export function NotificationButton() {
         },
     );
 
+    const [isMutating, setIsMutating] = useState(false);
     const { subscribeToPush, unsubscribeFromPush, isSubscribed, pushSubscription } = usePush();
+    const handleOnClick = useCallback(() => {
+        if (isSubscribed) {
+            if (pushSubscription) {
+                setIsMutating(true);
+                deletePushSubscription(pushSubscription.endpoint)
+                    .then(() => new Promise((resolve, reject) => unsubscribeFromPush(() => { resolve(undefined) }, reject)))
+                    .finally(() => setIsMutating(false));
+            }
+        } else if (data) {
+            setIsMutating(true);
+            new Promise<PushSubscription>((resolve, reject) => subscribeToPush(data.publicKey, resolve, reject))
+                .then((subscription) => {
+                    if (subscription) {
+                        return postPushSubscription(subscription);
+                    } 
+                })
+                .finally(() => setIsMutating(false));
+        }
+    }, [isSubscribed, pushSubscription, data, postPushSubscription, deletePushSubscription, subscribeToPush, unsubscribeFromPush, setIsMutating]);
 
     return (
-        <button
-            disabled={isLoading || error || isPosting || isDeleting}
-            onClick={() => {
-                if (isSubscribed) {
-                    if (pushSubscription) {
-                        deletePushSubscription(pushSubscription.endpoint)
-                            .then(() => {
-                                unsubscribeFromPush();
-                            });
-                    }
-                } else if (data) {
-                    subscribeToPush(data.publicKey, postPushSubscription);
-                }
-            }}
+        <Button
+            loading={isLoading || isMutating}
+            onClick={handleOnClick}
+            variant="contained"
+            startIcon={isSubscribed ? <NotificationsOffIcon /> : <NotificationsIcon />}
         >
             {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
-            {error}
-        </button>
+        </Button>
     );
 }
