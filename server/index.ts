@@ -128,6 +128,7 @@ export default {
         };
         const db = drizzle(env.DB);
         await db.insert(emailsTable).values(entity);
+        await db.delete(emailsTable).where(lte(emailsTable.date, Date.now() - 7 * 24 * 60 * 60 * 1000)); // Keep emails for 7 days
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
             prompt: JSON.stringify(entity),
