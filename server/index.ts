@@ -145,7 +145,12 @@ export default {
         await db.delete(emailsTable).where(lte(emailsTable.date, Date.now() - 7 * 24 * 60 * 60 * 1000)); // Keep emails for 7 days
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-            prompt: JSON.stringify(entity),
+            prompt: `
+            You are a financial transaction analyzer. Analyze the following email content and extract transaction details if present.
+            If the email does not contain a transaction, return {"success": false}.
+            ---
+            ${JSON.stringify(entity)}
+            `.trim(),
             response_format: {
                 type: 'json_schema',
                 json_schema: z.toJSONSchema(transactionSchema),
