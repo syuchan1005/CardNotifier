@@ -9,6 +9,7 @@ import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, tr
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
+import { getAuth, oidcAuthMiddleware } from "@hono/oidc-auth";
 import { sendNotification } from "./push";
 
 const pushSubscriptionSchema = z.object({
@@ -21,7 +22,6 @@ const pushSubscriptionSchema = z.object({
 });
 
 const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
-    .get("/health", (c) => c.json({ status: "OK" }))
     .get("/notification", (c) => c.json({ publicKey: c.env.WEB_PUSH_PUBLIC_KEY }))
     .post(
         "/notification",
@@ -94,6 +94,11 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
     );
 
 const app = new Hono()
+    .get("/api/health", async (c) => {
+        const auth = await getAuth(c);
+        return c.json({ status: "OK", auth });
+    })
+    .use("*", oidcAuthMiddleware())
     .route("/", apiRoute)
     // Workaround for Chrome DevTools
     .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404));
