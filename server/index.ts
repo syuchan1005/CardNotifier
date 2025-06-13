@@ -1,15 +1,19 @@
 import { eq, and, gte, lte, between, desc, SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
+import type { OidcAuthClaims } from 'hono';
 import {
     NotificationObject,
     PushSubscription,
 } from '@remix-pwa/push';
-import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable } from "./db/schema";
+import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
-import { getAuth, oidcAuthMiddleware } from "@hono/oidc-auth";
+import { getAuth, oidcAuthMiddleware, processOAuthCallback, revokeSession } from "@hono/oidc-auth";
+import type { IDToken, OidcAuth } from '@hono/oidc-auth';
+import { verify } from "hono/jwt";
+import { HTTPException } from "hono/http-exception";
 import { convert as convertHtmlToText } from "html-to-text";
 import { sendNotification } from "./push";
 
@@ -94,10 +98,54 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         },
     );
 
-const app = new Hono()
+const claimsSchema = z.object({
+    name: z.string().check(z.minLength(1)),
+    email: z.email(),
+    sub: z.string().check(z.minLength(1)),
+});
+
+const oidcClaimsHook = async (orig: OidcAuth | undefined, claims: IDToken | undefined): Promise<OidcAuthClaims> => {
+    const claim = claimsSchema.safeParse({
+        name: claims?.preferred_username ?? claims?.name ?? orig?.preferred_username ?? orig?.name,
+        email: claims?.email ?? orig?.email,
+        sub: claims?.sub ?? orig?.sub,
+    });
+    if (!claim.success) {
+        throw new HTTPException(500, {
+            message: `Invalid OIDC claims\n${z.prettifyError(claim.error)}`,
+        });
+    }
+    return claim.data;
+};
+
+const app = new Hono<{ Bindings: Env }>()
     .get("/api/health", async (c) => {
         const auth = await getAuth(c);
         return c.json({ status: "OK", auth });
+    })
+    .get("/logout", async (c) => {
+        await revokeSession(c);
+        return c.redirect("/");
+    })
+    .get("/callback", async (c) => {
+        c.set("oidcClaimsHook", oidcClaimsHook);
+        const response = await processOAuthCallback(c);
+        if (response.status === 302) {
+            const auth = await verify(c.get("oidcAuthJwt"), c.env.OIDC_AUTH_SECRET);
+            const claims = claimsSchema.parse(auth);
+            const db = drizzle(c.env.DB);
+            await db
+                .insert(usersTable)
+                .values(claims)
+                .onConflictDoUpdate({
+                    target: usersTable.sub,
+                    set: {
+                        name: claims.name,
+                        email: claims.email,
+                    },
+                });
+        }
+        return response;
     })
     .use("*", oidcAuthMiddleware())
     .route("/", apiRoute)

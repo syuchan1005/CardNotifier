@@ -7,6 +7,8 @@ type WithOptional<T, K extends keyof T> = Merge<Omit<T, K> & Partial<Pick<T, K>>
 export const usersTable = sqliteTable("users", {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
+    email: text().notNull().unique(),
+    sub: text().notNull().unique(),
 });
 
 export const pushSubscriptionsTable = sqliteTable("push_subscriptions", {
