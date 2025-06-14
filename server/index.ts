@@ -6,7 +6,7 @@ import {
     NotificationObject,
     PushSubscription,
 } from '@remix-pwa/push';
-import { EmailEntity, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable, usersTable } from "./db/schema";
+import { EmailEntity, emailRoutingRulesTable, emailsTable, pushSubscriptionsTable, TransactionEntity, transactionsTable, usersTable } from "./db/schema";
 import { zValidator } from "@hono/zod-validator";
 import { z } from 'zod/v4';
 import PostalMime from 'postal-mime';
@@ -15,6 +15,7 @@ import type { IDToken, OidcAuth } from '@hono/oidc-auth';
 import { verify } from "hono/jwt";
 import { HTTPException } from "hono/http-exception";
 import { convert as convertHtmlToText } from "html-to-text";
+import { v7 as uuidv7 } from 'uuid';
 import { sendNotification } from "./push";
 
 const pushSubscriptionSchema = z.object({
@@ -111,7 +112,103 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
             json = { status: "unauthenticated" } as const;
         }
         return c.json(json);
-    });
+    })
+    .get("/email/address", async (c) => {
+        const db = drizzle(c.env.DB);
+        const rules = await db.select().from(emailRoutingRulesTable)
+            .where(eq(emailRoutingRulesTable.userId, 1));
+        return c.json({
+            status: "OK",
+            emailAddresses: rules.map(rule => ({
+                id: rule.id,
+                emailAddress: rule.emailAddress,
+            })),
+        });
+    })
+    .post("/email/address", async (c) => {
+        const emailAddress = c.env.CF_EMAIL_TEMPLATE.replace("$email", uuidv7());
+        const rulesResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules`,
+            {
+                headers: {
+                    Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+                body: JSON.stringify({
+                    actions: [
+                        {
+                            type: "worker",
+                            value: [c.env.CF_WORKER_NAME],
+                        },
+                    ],
+                    matchers: [
+                        {
+                            type: "literal",
+                            field: "to",
+                            value: emailAddress,
+                        }
+                    ],
+                }),
+            }
+        ).then((res) => res.json());
+        const rulesPostSchema = z.object({
+            result: z.object({
+                id: z.string(),
+            }),
+            success: z.boolean(),
+            errors: z.array(z.any()),
+            menubarges: z.array(z.any()),
+        });
+        const parsedRules = rulesPostSchema.safeParse(rulesResponse);
+        if (!parsedRules.success || !parsedRules.data.success) {
+            throw new HTTPException(500, {
+                message: `Failed to create email routing rule: ${JSON.stringify(parsedRules.error)}`,
+            });
+        }
+        const db = drizzle(c.env.DB);
+        await db.insert(emailRoutingRulesTable).values({
+            userId: 1,
+            emailAddress,
+            ruleId: parsedRules.data.result.id,
+        });
+        return c.json({ status: "OK" });
+    })
+    .delete(
+        "/email/address/:id",
+        zValidator('param', z.object({ id: z.string().check(z.minLength(1)) })),
+        async (c) => {
+            const { id: ruleId } = c.req.valid('param');
+            const rulesResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${ruleId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                    method: "DELETE",
+                }
+            );
+            const rulesDeleteSchema = z.object({
+                success: z.boolean(),
+                errors: z.array(z.any()),
+                messages: z.array(z.any()),
+            });
+            const parsedRules = rulesDeleteSchema.safeParse(await rulesResponse.json());
+            if (!parsedRules.success || !parsedRules.data.success) {
+                throw new HTTPException(500, {
+                    message: `Failed to delete email routing rule: ${JSON.stringify(parsedRules.error)}`,
+                });
+            }
+            const db = drizzle(c.env.DB);
+            await db.delete(emailRoutingRulesTable)
+                .where(and(
+                    eq(emailRoutingRulesTable.userId, 1),
+                    eq(emailRoutingRulesTable.ruleId, ruleId),
+                ));
+            return c.json({ status: "OK" });
+        },
+    );
 
 const claimsSchema = z.object({
     name: z.string().check(z.minLength(1)),
@@ -182,8 +279,26 @@ const transactionSchema = z.union([
 export default {
     ...app,
     async email(message, env) {
+        const forwardedTo = message.headers.get('X-Forwarded-To')
+            || message.headers.get('X-Forwarded-For')?.split(/[, ]+/)?.pop();
+        if (!forwardedTo) {
+            return;
+        }
+        const db = drizzle(env.DB);
+        const rule = await db.select().from(emailRoutingRulesTable)
+            .where(and(
+                eq(emailRoutingRulesTable.emailAddress, forwardedTo),
+            ))
+            .limit(1)
+            .then(rows => rows[0]);
+        if (!rule) {
+            console.warn(`No routing rule found for email address: ${forwardedTo}`);
+            return;
+        }
+
         const rawText = await new Response(message.raw).text();
         const parsedMessage = await PostalMime.parse(rawText);
+
         let bodyText = "";
         if (parsedMessage.text) {
             bodyText = parsedMessage.text;
@@ -192,16 +307,20 @@ export default {
                 .replace(/\[?http.+/g, "").replace(/^\s*\n/gm, ""); // Remove link and empty lines
         }
 
+        const to = [
+            ...(parsedMessage.to || []),
+            ...(parsedMessage.cc || []),
+            ...(parsedMessage.bcc || []),
+        ];
         const entity: EmailEntity = {
-            userId: 1,
+            userId: rule.userId,
             from: parsedMessage.from.address || '',
-            to: parsedMessage.to?.map((to) => to.address).filter((to) => !!to).join(', ') || '',
+            to: to.map((to) => to.address).filter((to) => !!to).join(', ') || '',
             date: parsedMessage.date ? new Date(parsedMessage.date).getTime() : Date.now(),
             messageId: parsedMessage.messageId,
             subject: parsedMessage.subject || '',
             bodyText,
         };
-        const db = drizzle(env.DB);
         await db.insert(emailsTable).values(entity);
         await db.delete(emailsTable).where(lte(emailsTable.date, Date.now() - 7 * 24 * 60 * 60 * 1000)); // Keep emails for 7 days
 

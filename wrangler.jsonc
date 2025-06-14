@@ -22,5 +22,9 @@
   ],
   "ai": {
     "binding": "AI"
+  },
+  "vars": {
+    "CF_WORKER_NAME": "card-notifier",
+    "CF_EMAIL_TEMPLATE": "card-notifier-$email@example.com"
   }
 }
