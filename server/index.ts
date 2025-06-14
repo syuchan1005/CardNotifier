@@ -1,7 +1,7 @@
 import { eq, and, gte, lte, between, desc, SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
-import type { OidcAuthClaims } from 'hono';
+import type { Context, OidcAuthClaims } from 'hono';
 import {
     NotificationObject,
     PushSubscription,
@@ -27,6 +27,28 @@ const pushSubscriptionSchema = z.object({
     expirationTime: z.number().nullish(),
 });
 
+const getAuthUserId = async (c: Context<{ Bindings: Env }>): Promise<number> => {
+    const auth = await getAuth(c);
+    if (!auth || !auth.sub) {
+        throw new HTTPException(401, { message: "Unauthorized" });
+    }
+    const claims = claimsSchema.safeParse(auth);
+    if (!claims.success) {
+        throw new HTTPException(500, {
+            message: `Invalid OIDC claims\n${z.prettifyError(claims.error)}`,
+        });
+    }
+    const db = drizzle(c.env.DB);
+    const user = await db.select().from(usersTable)
+        .where(eq(usersTable.sub, claims.data.sub))
+        .limit(1)
+        .then(rows => rows[0]);
+    if (!user) {
+        throw new HTTPException(401, { message: "User not found" });
+    }
+    return user.id;
+};
+
 const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
     .use("*", oidcAuthMiddleware())
     .get("/notification", (c) => c.json({ publicKey: c.env.WEB_PUSH_PUBLIC_KEY }))
@@ -34,11 +56,12 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         "/notification",
         zValidator('json', pushSubscriptionSchema),
         async (c) => {
+            const userId = await getAuthUserId(c);
             const body = c.req.valid('json');
 
             const db = drizzle(c.env.DB);
             await db.insert(pushSubscriptionsTable).values({
-                userId: 1,
+                userId,
                 endpoint: body.endpoint,
                 keyP256dh: body.keys.p256dh,
                 keyAuth: body.keys.auth,
@@ -61,11 +84,12 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         "/notification",
         zValidator('json', z.object({ endpoint: pushSubscriptionSchema.shape.endpoint })),
         async (c) => {
+            const userId = await getAuthUserId(c);
             const body = c.req.valid('json');
             const db = drizzle(c.env.DB);
             await db.delete(pushSubscriptionsTable)
                 .where(and(
-                    eq(pushSubscriptionsTable.userId, 1),
+                    eq(pushSubscriptionsTable.userId, userId),
                     eq(pushSubscriptionsTable.endpoint, body.endpoint),
                 ));
 
@@ -82,6 +106,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
             }).optional(),
         ),
         async (c) => {
+            const userId = await getAuthUserId(c);
             const { since, until } = (c.req.valid('query') || {});
             const db = drizzle(c.env.DB);
             let purchasedAtFilter: SQL | undefined = undefined;
@@ -93,7 +118,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 purchasedAtFilter = lte(transactionsTable.purchasedAt, new Date(until).getTime());
             }
             const response = await db.select().from(transactionsTable)
-                .where(and(eq(transactionsTable.userId, 1), purchasedAtFilter))
+                .where(and(eq(transactionsTable.userId, userId), purchasedAtFilter))
                 .limit(100)
                 .orderBy(desc(transactionsTable.purchasedAt));
             return c.json(response);
@@ -114,9 +139,10 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         return c.json(json);
     })
     .get("/email/address", async (c) => {
+        const userId = await getAuthUserId(c);
         const db = drizzle(c.env.DB);
         const rules = await db.select().from(emailRoutingRulesTable)
-            .where(eq(emailRoutingRulesTable.userId, 1));
+            .where(eq(emailRoutingRulesTable.userId, userId));
         return c.json({
             status: "OK",
             emailAddresses: rules.map(rule => ({
@@ -126,6 +152,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         });
     })
     .post("/email/address", async (c) => {
+        const userId = await getAuthUserId(c);
         const emailAddress = c.env.CF_EMAIL_TEMPLATE.replace("$email", uuidv7());
         const rulesResponse = await fetch(
             `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules`,
@@ -168,7 +195,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         }
         const db = drizzle(c.env.DB);
         await db.insert(emailRoutingRulesTable).values({
-            userId: 1,
+            userId,
             emailAddress,
             ruleId: parsedRules.data.result.id,
         });
@@ -179,6 +206,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         zValidator('param', z.object({ id: z.string().check(z.minLength(1)) })),
         async (c) => {
             const { id: ruleId } = c.req.valid('param');
+            const userId = await getAuthUserId(c);
             const rulesResponse = await fetch(
                 `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${ruleId}`,
                 {
@@ -203,7 +231,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
             const db = drizzle(c.env.DB);
             await db.delete(emailRoutingRulesTable)
                 .where(and(
-                    eq(emailRoutingRulesTable.userId, 1),
+                    eq(emailRoutingRulesTable.userId, userId),
                     eq(emailRoutingRulesTable.ruleId, ruleId),
                 ));
             return c.json({ status: "OK" });
