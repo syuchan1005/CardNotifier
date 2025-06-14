@@ -27,6 +27,7 @@ const pushSubscriptionSchema = z.object({
 });
 
 const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
+    .use("*", oidcAuthMiddleware())
     .get("/notification", (c) => c.json({ publicKey: c.env.WEB_PUSH_PUBLIC_KEY }))
     .post(
         "/notification",
@@ -96,7 +97,21 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 .orderBy(desc(transactionsTable.purchasedAt));
             return c.json(response);
         },
-    );
+    )
+    .get("/user", async (c) => {
+        const auth = await getAuth(c);
+        const claims = claimsSchema.safeParse(auth);
+        let json;
+        if (claims.success) {
+            json = {
+                status: "authenticated",
+                name: claims.data.name,
+            } as const;
+        } else {
+            json = { status: "unauthenticated" } as const;
+        }
+        return c.json(json);
+    });
 
 const claimsSchema = z.object({
     name: z.string().check(z.minLength(1)),
@@ -119,10 +134,7 @@ const oidcClaimsHook = async (orig: OidcAuth | undefined, claims: IDToken | unde
 };
 
 const app = new Hono<{ Bindings: Env }>()
-    .get("/api/health", async (c) => {
-        const auth = await getAuth(c);
-        return c.json({ status: "OK", auth });
-    })
+    .get("/api/health", (c) => c.json({ status: "OK" }))
     .get("/logout", async (c) => {
         await revokeSession(c);
         return c.redirect("/");
@@ -147,7 +159,7 @@ const app = new Hono<{ Bindings: Env }>()
         }
         return response;
     })
-    .use("*", oidcAuthMiddleware())
+    .use("/", oidcAuthMiddleware())
     .route("/", apiRoute)
     // Workaround for Chrome DevTools
     .get("/.well-known/appspecific/com.chrome.devtools.json", (c) => c.newResponse(null, 404));

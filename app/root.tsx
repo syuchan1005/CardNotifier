@@ -19,6 +19,7 @@ import {grey, blueGrey } from '@mui/material/colors';
 import { NotificationButton } from "./NotificationButton";
 
 import "./tailwind.css";
+import { AuthButton } from "./AuthButton";
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -104,6 +105,7 @@ export default function App() {
             Card Notifier
           </Typography>
           <NotificationButton />
+          <AuthButton sx={{ ml: 1 }} />
         </Toolbar>
       </AppBar>
       <Container component="main">
