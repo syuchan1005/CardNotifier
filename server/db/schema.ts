@@ -25,6 +25,7 @@ export type PushSubscriptionEntity = WithOptional<InferSelectModel<typeof pushSu
 export const transactionsTable = sqliteTable("transactions", {
     id: integer().primaryKey({ autoIncrement: true }),
     userId: integer().notNull(),
+    messageId: text().notNull(),
     isRefund: integer({ mode: 'boolean' }).notNull(),
     amount: integer().notNull(),
     amountCurrency: text().notNull(),
@@ -42,6 +43,7 @@ export const emailsTable = sqliteTable("emails", {
     from: text().notNull(),
     to: text().notNull(),
     date: integer().notNull(),
+    messageId: text().notNull(),
     subject: text().notNull(),
     bodyText: text().notNull(),
 });

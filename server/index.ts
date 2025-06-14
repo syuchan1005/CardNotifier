@@ -197,6 +197,7 @@ export default {
             from: parsedMessage.from.address || '',
             to: parsedMessage.to?.map((to) => to.address).filter((to) => !!to).join(', ') || '',
             date: parsedMessage.date ? new Date(parsedMessage.date).getTime() : Date.now(),
+            messageId: parsedMessage.messageId,
             subject: parsedMessage.subject || '',
             bodyText,
         };
@@ -225,6 +226,7 @@ export default {
 
         const transaction: TransactionEntity = {
             userId: entity.userId,
+            messageId: entity.messageId,
             isRefund: response.data.isRefund,
             amount: response.data.amount,
             amountCurrency: response.data.amountCurrency,
