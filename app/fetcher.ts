@@ -6,7 +6,7 @@ import useSWRMutation from 'swr/mutation';
 export const client = hc<AppType>('/');
 
 export const useHono = <T>(
-    key: string,
+    key: string | null,
     fetcher: (c: typeof client) => Promise<ClientResponse<T>>,
 ) => useSWR(
     key,
@@ -14,12 +14,11 @@ export const useHono = <T>(
 );
 
 export const useHonoMutation = <T, A>(
-    key: string,
+    key: string | null,
     fetcher: (c: typeof client, options: { arg: A }) => Promise<ClientResponse<T>>,
+    options?: { onSuccess?: () => void },
 ) => useSWRMutation(
     key,
-    async (_, options: { arg: A }) => {
-        const response = await fetcher(client, options);
-        return response.json() as Promise<T>;
-    },
+    (_, options: { arg: A }) => fetcher(client, options).then(r => r.json() as Promise<T>),
+    options
 );
