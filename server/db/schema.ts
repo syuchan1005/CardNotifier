@@ -54,5 +54,5 @@ export const emailRoutingRulesTable = sqliteTable("email_routing_rules", {
     id: integer().primaryKey({ autoIncrement: true }),
     userId: integer().notNull(),
     emailAddress: text().notNull(),
-    ruleId: text().notNull(),
+    cfRuleId: text().notNull(),
 });

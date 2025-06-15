@@ -1,0 +1,1 @@
+ALTER TABLE `email_routing_rules` RENAME COLUMN "ruleId" TO "cfRuleId";

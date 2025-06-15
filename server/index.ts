@@ -203,7 +203,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
         await db.insert(emailRoutingRulesTable).values({
             userId,
             emailAddress,
-            ruleId: parsedRules.data.result.id,
+            cfRuleId: parsedRules.data.result.id,
         });
         return c.json({ status: "OK" });
     })
@@ -225,7 +225,7 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
                 throw new HTTPException(404, { message: "Email routing rule not found" });
             }
             const rulesResponse = await fetch(
-                `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${email.ruleId}`,
+                `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${email.cfRuleId}`,
                 {
                     headers: {
                         Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
