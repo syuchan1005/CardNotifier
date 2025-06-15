@@ -331,7 +331,7 @@ export default {
         const forwardedTo = message.headers.get('X-Forwarded-To')
             || message.headers.get('X-Forwarded-For')?.split(/[, ]+/)?.pop();
         if (!forwardedTo) {
-            return;
+            throw new Error("X-Forwarded-To and X-Forwarded-For headers are not set");
         }
         const db = drizzle(env.DB);
         const rule = await db.select().from(emailRoutingRulesTable)
@@ -341,8 +341,7 @@ export default {
             .limit(1)
             .then(rows => rows[0]);
         if (!rule) {
-            console.warn(`No routing rule found for email address: ${forwardedTo}`);
-            return;
+            throw new Error(`No routing rule found for email address: ${forwardedTo}`);
         }
 
         const rawText = await new Response(message.raw).text();
