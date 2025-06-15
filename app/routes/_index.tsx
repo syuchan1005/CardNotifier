@@ -66,11 +66,30 @@ export default function Index() {
   if (isLoading) {
     return <CircularProgress sx={{ display: "block", margin: "auto", mt: 4 }} />;
   }
+  const fab = (
+    <Fab
+      sx={(theme) => ({ position: 'absolute', bottom: theme.spacing(2), right: theme.spacing(2) })}
+      aria-label="refresh"
+      onClick={() => mutate()}
+    >
+      <RefreshIcon />
+    </Fab>
+  );
   if (error) {
-    return <Typography color="error" sx={{ textAlign: "center", mt: 4 }}>{error.message}</Typography>;
+    return (
+      <>
+        <Typography color="error" sx={{ textAlign: "center", mt: 4 }}>{error.message}</Typography>
+        {fab}
+      </>
+    );
   }
   if (Object.keys(transactions).length === 0) {
-    return <Typography sx={{ textAlign: "center", mt: 4 }}>No transactions found.</Typography>;
+    return (
+      <>
+        <Typography sx={{ textAlign: "center", mt: 4 }}>No transactions found.</Typography>
+        {fab}
+      </>
+    );
   }
   return (
     <>
@@ -115,13 +134,7 @@ export default function Index() {
           ))
         }
       </List>
-      <Fab
-        sx={(theme) => ({ position: 'absolute', bottom: theme.spacing(2), right: theme.spacing(2) })}
-        aria-label="refresh"
-        onClick={() => mutate()}
-      >
-        <RefreshIcon />
-      </Fab>
+      {fab}
     </>
   );
 }
