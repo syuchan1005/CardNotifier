@@ -16,8 +16,6 @@
 		"generate:migration": "drizzle-kit generate",
 		"local:migration": "wrangler d1 migrations apply card-notifier --local",
 		"remote:migration": "wrangler d1 migrations apply card-notifier --remote",
-		"local:seed": "wrangler d1 execute card-notifier --local --file=seed.sql",
-		"remote:seed": "wrangler d1 execute card-notifier --remote --file=seed.sql",
 		"local:email": "node ./receive-email.js",
 		"generate:pwa-assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg",
 		"postinstall": "patch-package"
