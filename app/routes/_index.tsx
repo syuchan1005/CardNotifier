@@ -31,7 +31,7 @@ export default function Index() {
   type Transactions = Exclude<typeof data, undefined>;
 
   const transactions =
-    (data || [])?.reduce((acc, transaction) => {
+    (data || []).reduce((acc, transaction) => {
       const date = new Date(transaction.purchasedAt);
       const weekOfYear = `${date.getFullYear()}-${getWeekOfYear(date)}`;
       const dateKey = date.toISOString().split("T")[0];
@@ -68,6 +68,9 @@ export default function Index() {
   }
   if (error) {
     return <Typography color="error" sx={{ textAlign: "center", mt: 4 }}>{error.message}</Typography>;
+  }
+  if (Object.keys(transactions).length === 0) {
+    return <Typography sx={{ textAlign: "center", mt: 4 }}>No transactions found.</Typography>;
   }
   return (
     <>
