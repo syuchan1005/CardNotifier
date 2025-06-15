@@ -328,10 +328,13 @@ const transactionSchema = z.union([
 export default {
     ...app,
     async email(message, env) {
+        const rawText = await new Response(message.raw).text();
+        const parsedMessage = await PostalMime.parse(rawText);
+
         const forwardedTo = message.headers.get('X-Forwarded-To')
             || message.headers.get('X-Forwarded-For')?.split(/[, ]+/)?.pop();
         if (!forwardedTo) {
-            throw new Error("X-Forwarded-To and X-Forwarded-For headers are not set");
+            throw new Error(`X-Forwarded-To and X-Forwarded-For headers are not set (body: ${parsedMessage.text || parsedMessage.html || ''})`);
         }
         const db = drizzle(env.DB);
         const rule = await db.select().from(emailRoutingRulesTable)
@@ -343,9 +346,6 @@ export default {
         if (!rule) {
             throw new Error(`No routing rule found for email address: ${forwardedTo}`);
         }
-
-        const rawText = await new Response(message.raw).text();
-        const parsedMessage = await PostalMime.parse(rawText);
 
         let bodyText = "";
         if (parsedMessage.text) {
