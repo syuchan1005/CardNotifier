@@ -7,8 +7,8 @@ export const loader = () => {
       name: 'Card Notifier',
       start_url: '/',
       display: 'standalone',
-      background_color: '#d3d7dd',
-      theme_color: '#c34138',
+      background_color: '#000000',
+      theme_color: '#424242',
       icons: [
         {
           src: "pwa-64x64.png",
