@@ -68,7 +68,7 @@ export default function Index() {
   }
   const fab = (
     <Fab
-      sx={(theme) => ({ position: 'absolute', bottom: theme.spacing(2), right: theme.spacing(2) })}
+      sx={(theme) => ({ position: 'fixed', bottom: theme.spacing(2), right: theme.spacing(2) })}
       aria-label="refresh"
       onClick={() => mutate()}
     >

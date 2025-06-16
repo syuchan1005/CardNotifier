@@ -14,8 +14,9 @@ import {
   Container,
   Typography,
   InitColorSchemeScript,
+  Box,
 } from '@mui/material';
-import {grey, blueGrey } from '@mui/material/colors';
+import { grey, blueGrey } from '@mui/material/colors';
 import { NotificationButton } from "./NotificationButton";
 
 import "./tailwind.css";
@@ -48,7 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="icon" href="/logo.svg" sizes="any" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
       </head>
-      <body style={{ height: '100vh' }}>
+      <body style={{ height: '100vh', background: 'none' }}>
         <InitColorSchemeScript attribute="class" />
         {children}
         <ScrollRestoration />
@@ -99,18 +100,21 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar position="static" color="primary" enableColorOnDark>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Card Notifier
-          </Typography>
-          <NotificationButton />
-          <AuthButton sx={{ ml: 1 }} />
-        </Toolbar>
-      </AppBar>
-      <Container component="main">
-        <Outlet />
-      </Container>
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        <AppBar >
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Card Notifier
+            </Typography>
+            <NotificationButton />
+            <AuthButton sx={{ ml: 1 }} />
+          </Toolbar>
+        </AppBar>
+        <Container component="main">
+          <Toolbar />
+          <Outlet />
+        </Container>
+      </Box>
     </ThemeProvider>
   );
 }
