@@ -154,56 +154,60 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
     .post("/email/address", async (c) => {
         const userId = await getAuthUserId(c);
         const emailAddress = c.env.CF_EMAIL_TEMPLATE.replace("$email", uuidv7());
-        const rulesResponse = await fetch(
-            `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules`,
-            {
-                headers: {
-                    Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-                method: "POST",
-                body: JSON.stringify({
-                    actions: [
-                        {
-                            type: "worker",
-                            value: [c.env.CF_WORKER_NAME],
-                        },
-                    ],
-                    matchers: [
-                        {
-                            type: "literal",
-                            field: "to",
-                            value: emailAddress,
-                        }
-                    ],
+        let cfRuleId = "";
+        if (c.env.CF_ACCOUNT_TOKEN) {
+            const rulesResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                    method: "POST",
+                    body: JSON.stringify({
+                        actions: [
+                            {
+                                type: "worker",
+                                value: [c.env.CF_WORKER_NAME],
+                            },
+                        ],
+                        matchers: [
+                            {
+                                type: "literal",
+                                field: "to",
+                                value: emailAddress,
+                            }
+                        ],
+                    }),
+                }
+            ).then((res) => res.json());
+            const rulesPostSchema = z.object({
+                result: z.object({
+                    id: z.string(),
                 }),
+                success: z.boolean(),
+                errors: z.array(z.any()),
+                messages: z.array(z.any()),
+            });
+
+            const parsedRules = rulesPostSchema.safeParse(rulesResponse);
+            if (!parsedRules.success) {
+                throw new HTTPException(500, {
+                    message: `Failed to create email routing rule: ${z.prettifyError(parsedRules.error)}`,
+                });
             }
-        ).then((res) => res.json());
-        const rulesPostSchema = z.object({
-            result: z.object({
-                id: z.string(),
-            }),
-            success: z.boolean(),
-            errors: z.array(z.any()),
-            messages: z.array(z.any()),
-        });
-        
-        const parsedRules = rulesPostSchema.safeParse(rulesResponse);
-        if (!parsedRules.success) {
-            throw new HTTPException(500, {
-                message: `Failed to create email routing rule: ${z.prettifyError(parsedRules.error)}`,
-            });
-        }
-        if (!parsedRules.data.success) {
-            throw new HTTPException(500, {
-                message: `Failed to create email routing rule: ${JSON.stringify(parsedRules.data.errors)}`,
-            });
+            if (!parsedRules.data.success) {
+                throw new HTTPException(500, {
+                    message: `Failed to create email routing rule: ${JSON.stringify(parsedRules.data.errors)}`,
+                });
+            }
+            cfRuleId = parsedRules.data.result.id;
         }
         const db = drizzle(c.env.DB);
         await db.insert(emailRoutingRulesTable).values({
             userId,
             emailAddress,
-            cfRuleId: parsedRules.data.result.id,
+            cfRuleId,
         });
         return c.json({ status: "OK" });
     })
@@ -224,31 +228,33 @@ const apiRoute = new Hono<{ Bindings: Env }>().basePath("/api")
             if (!email) {
                 throw new HTTPException(404, { message: "Email routing rule not found" });
             }
-            const rulesResponse = await fetch(
-                `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${email.cfRuleId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
-                        "Content-Type": "application/json",
-                    },
-                    method: "DELETE",
+            if (c.env.CF_ACCOUNT_TOKEN) {
+                const rulesResponse = await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${c.env.CF_ZONE_ID}/email/routing/rules/${email.cfRuleId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${c.env.CF_ACCOUNT_TOKEN}`,
+                            "Content-Type": "application/json",
+                        },
+                        method: "DELETE",
+                    }
+                );
+                const rulesDeleteSchema = z.object({
+                    success: z.boolean(),
+                    errors: z.array(z.any()),
+                    messages: z.array(z.any()),
+                });
+                const parsedRules = rulesDeleteSchema.safeParse(await rulesResponse.json());
+                if (!parsedRules.success) {
+                    throw new HTTPException(500, {
+                        message: `Failed to delete email routing rule: ${z.prettifyError(parsedRules.error)}`,
+                    });
                 }
-            );
-            const rulesDeleteSchema = z.object({
-                success: z.boolean(),
-                errors: z.array(z.any()),
-                messages: z.array(z.any()),
-            });
-            const parsedRules = rulesDeleteSchema.safeParse(await rulesResponse.json());
-            if (!parsedRules.success) {
-                throw new HTTPException(500, {
-                    message: `Failed to delete email routing rule: ${z.prettifyError(parsedRules.error)}`,
-                });
-            }
-            if (!parsedRules.data.success) {
-                throw new HTTPException(500, {
-                    message: `Failed to delete email routing rule: ${JSON.stringify(parsedRules.data.errors)}`,
-                });
+                if (!parsedRules.data.success) {
+                    throw new HTTPException(500, {
+                        message: `Failed to delete email routing rule: ${JSON.stringify(parsedRules.data.errors)}`,
+                    });
+                }
             }
             await db.delete(emailRoutingRulesTable)
                 .where(and(
