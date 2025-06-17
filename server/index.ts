@@ -380,8 +380,9 @@ export default {
 
         const answer = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
             prompt: `
-            You are a financial transaction analyzer. Analyze the following email content and extract transaction details if present.
-            If the email does not contain a transaction, return {"success": false}.
+            You are a credit card transaction analyzer. Analyze the following email content and extract credit card transaction details if present.
+            Product statement emails and emails for points redemption are not considered transactions.
+            If the email does not contain a credit card transaction, return {"success": false}.
             ---
             ${JSON.stringify(entity)}
             `.trim(),
